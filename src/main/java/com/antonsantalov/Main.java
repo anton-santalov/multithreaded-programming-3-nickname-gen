@@ -1,67 +1,66 @@
 package com.antonsantalov;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
-    private static final AtomicInteger COUNT_BEAUTIFUL_3_LETTERS_TEXT = new AtomicInteger(0);
-    private static final AtomicInteger COUNT_BEAUTIFUL_4_LETTERS_TEXT = new AtomicInteger(0);
-    private static final AtomicInteger COUNT_BEAUTIFUL_5_LETTERS_TEXT = new AtomicInteger(0);
-    private static final int THREAD_POOL_SIZE = Runtime.getRuntime().availableProcessors();
+    private static final Counter COUNTER_BEAUTIFUL_3_LETTERS_TEXT = new Counter();
+    private static final Counter COUNTER_BEAUTIFUL_4_LETTERS_TEXT = new Counter();
+    private static final Counter COUNTER_BEAUTIFUL_5_LETTERS_TEXT = new Counter();
 
-    public static void main(String[] args) throws InterruptedException, ExecutionException {
+    public static void main(String[] args) throws InterruptedException {
         Random random = new Random();
         String[] texts = new String[100_000];
         for (int i = 0; i < texts.length; i++) {
             texts[i] = generateText("abc", 3 + random.nextInt(3));
         }
 
-        final ExecutorService threadPool = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
+        ThreadGroup threadGroup = new ThreadGroup("thread group");
 
-
-        List<Thread> threads = new ArrayList<>();
-        for (String text : texts) {
-            Thread thread = new Thread(() -> {
-                if (isBeautiful(text)) {
-                    switch (text.length()) {
-                        case 3 -> increment();
-                        case 4 -> COUNT_BEAUTIFUL_4_LETTERS_TEXT.incrementAndGet();
-                        case 5 -> COUNT_BEAUTIFUL_5_LETTERS_TEXT.incrementAndGet();
-                    }
+        final Thread thread1 = new Thread(() -> {
+            for (String text : texts) {
+                if (isPalindrome(text)) {
+                    incrementNeededCounter(text);
                 }
-            });
-            threads.add(thread);
-            thread.start();
-        }
+            }
+        }, threadGroup.getName());
+        thread1.start();
 
+        final Thread thread2 = new Thread(() -> {
+            for (String text : texts) {
+                if (isIdenticalLetters(text)) {
+                    incrementNeededCounter(text);
+                }
+            }
+        }, threadGroup.getName());
+        thread2.start();
 
-        final List<Future<Void>> futures = new ArrayList<>();
+        final Thread thread3 = new Thread(() -> {
+            for (String text : texts) {
+                if (isLettersInAscOrder(text)) {
+                    incrementNeededCounter(text);
+                }
+            }
+        }, threadGroup.getName());
+        thread3.start();
 
-        for (Future<Void> future : futures) {
-            future.get();
-        }
+        thread1.join();
+        thread2.join();
+        thread3.join();
 
-        threadPool.shutdown();
+        threadGroup.interrupt();
 
-
-        System.out.printf("Красивых слов с длиной %d: %d шт%n", 3, COUNT_BEAUTIFUL_3_LETTERS_TEXT.get());
-        System.out.printf("Красивых слов с длиной %d: %d шт%n", 4, COUNT_BEAUTIFUL_4_LETTERS_TEXT.get());
-        System.out.printf("Красивых слов с длиной %d: %d шт%n", 5, COUNT_BEAUTIFUL_5_LETTERS_TEXT.get());
+        System.out.printf("Красивых слов с длиной %d: %d шт%n", 3, COUNTER_BEAUTIFUL_3_LETTERS_TEXT.getCounterValue());
+        System.out.printf("Красивых слов с длиной %d: %d шт%n", 4, COUNTER_BEAUTIFUL_4_LETTERS_TEXT.getCounterValue());
+        System.out.printf("Красивых слов с длиной %d: %d шт%n", 5, COUNTER_BEAUTIFUL_5_LETTERS_TEXT.getCounterValue());
     }
 
-    private static void increment() {
-        COUNT_BEAUTIFUL_3_LETTERS_TEXT.incrementAndGet();
-    }
-
-    private static boolean isBeautiful(String text) {
-        return isPalindrome(text) || isIdenticalLetters(text)
-            || isLettersInAscOrder(text);
+    public static String generateText(String letters, int length) {
+        Random random = new Random();
+        StringBuilder text = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            text.append(letters.charAt(random.nextInt(letters.length())));
+        }
+        return text.toString();
     }
 
     private static boolean isPalindrome(String text) {
@@ -96,12 +95,11 @@ public class Main {
         return true;
     }
 
-    public static String generateText(String letters, int length) {
-        Random random = new Random();
-        StringBuilder text = new StringBuilder();
-        for (int i = 0; i < length; i++) {
-            text.append(letters.charAt(random.nextInt(letters.length())));
+    private static void incrementNeededCounter(String text) {
+        switch (text.length()) {
+            case 3 -> COUNTER_BEAUTIFUL_3_LETTERS_TEXT.incrementCounter();
+            case 4 -> COUNTER_BEAUTIFUL_4_LETTERS_TEXT.incrementCounter();
+            case 5 -> COUNTER_BEAUTIFUL_5_LETTERS_TEXT.incrementCounter();
         }
-        return text.toString();
     }
 }
